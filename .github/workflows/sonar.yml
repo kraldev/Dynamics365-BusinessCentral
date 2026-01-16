@@ -29,6 +29,6 @@ jobs:
         sonar-token: ${{ secrets.SONAR_TOKEN }} # Optional, default is ' '
         sonar-organization: ${{ secrets.SONAR_ORGANIZATION }} # Optional, default is ' '
         #sonar-host-url: ${{ secrets.SONAR_HOST }} # Optional, default is 'https://sonarcloud.io'
-        dotnet-solution-path: 'Dynamics365.BusinessCentral.sln' # Optional, default is ' ' (root)
+        dotnet-solution-path: 'Dynamics365.BusinessCentral.slnx' # Optional, default is ' ' (root)
         dotnet-version: '10.x' # Optional, default is '8.x'
         is-need-publish: 'true' # Optional, default is ' '
