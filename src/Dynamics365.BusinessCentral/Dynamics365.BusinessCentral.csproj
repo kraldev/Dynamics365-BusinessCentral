@@ -45,4 +45,10 @@
               PackagePath="\" />
     </ItemGroup>
 
+    <ItemGroup>
+        <None Include="..\..\assets\bcclient.png"
+              Pack="true"
+              PackagePath="\" />
+    </ItemGroup>
+
 </Project>
