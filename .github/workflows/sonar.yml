@@ -27,10 +27,10 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore Dynamics365.BusinessCentral.slnx
 
-      - name: Build (Sonar target: net8.0)
+      - name: Build
         run: dotnet build Dynamics365.BusinessCentral.slnx --no-restore -c Release -f net8.0
 
-      - name: Test (Sonar target: net8.0)
+      - name: Test
         run: dotnet test Dynamics365.BusinessCentral.slnx --no-build -c Release -f net8.0
 
       - name: Install Sonar tools
