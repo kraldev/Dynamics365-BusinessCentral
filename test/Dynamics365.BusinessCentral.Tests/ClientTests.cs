@@ -334,7 +334,7 @@ public class AdditionalClientTests
         });
 
         // Act
-        await client.QueryAsync<TestEntity>("orders", "true", select: new[] { "id", "name" });
+        await client.QueryAsync<TestEntity>("orders", "true", select: IdNameFields);
 
         // Assert
         Assert.NotNull(capturedUrl);
@@ -595,7 +595,7 @@ public class AdditionalClientTests
         });
 
         // Act
-        await client.QueryAllAsync<TestEntity>("orders", select: new[] { "id", "name" });
+        await client.QueryAllAsync<TestEntity>("orders", select: IdNameFields);
 
         // Assert
         Assert.NotNull(capturedUrl);
@@ -1171,6 +1171,8 @@ public class AdditionalClientTests
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
     }
+
+    private static readonly string[] IdNameFields = { "id", "name" };
 
     private static string? ExtractFilter(string? url)
     {
