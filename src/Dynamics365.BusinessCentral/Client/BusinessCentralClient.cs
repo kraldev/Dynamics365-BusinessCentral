@@ -16,7 +16,9 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
     private readonly SemaphoreSlim _tokenLock = new(1, 1);
     private CachedAccessToken? _token;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private const string BearerScheme = "Bearer";
+
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
@@ -50,7 +52,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
 
         try
         {
-            var wrapper = JsonSerializer.Deserialize<ODataWrapper<TEntity>>(json, JsonOptions)
+            var wrapper = JsonSerializer.Deserialize<ODataWrapper<TEntity>>(json, _jsonOptions)
                           ?? throw new JsonException("Response was null.");
 
             return wrapper.Value;
@@ -78,7 +80,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
             HttpMethod.Get,
             $"{_options.BaseUrl}/Company('{_options.Company}')/{path}");
 
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Headers.Authorization = new AuthenticationHeaderValue(BearerScheme, token);
 
         var res = await _http.SendAsync(req, cancellationToken);
         res.RequestMessage ??= req;
@@ -90,7 +92,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
 
         try
         {
-            return JsonSerializer.Deserialize<TResponse>(json, JsonOptions)
+            return JsonSerializer.Deserialize<TResponse>(json, _jsonOptions)
                    ?? throw new JsonException("Response was null.");
         }
         catch (JsonException ex)
@@ -144,27 +146,46 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         return all;
     }
 
-    public async Task PatchAsync<TPayload>(
+    public async Task<TResponse> PatchAsync<TPayload, TResponse>(
         string path,
         string systemId,
         TPayload payload,
         string ifMatch = "*",
         CancellationToken cancellationToken = default)
+        where TResponse : class
     {
         var token = await GetTokenAsync(cancellationToken);
 
         var url = $"{_options.BaseUrl}/Company('{_options.Company}')/{path}({systemId})";
         var req = new HttpRequestMessage(HttpMethod.Patch, url);
 
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Headers.Authorization = new AuthenticationHeaderValue(BearerScheme, token);
         req.Headers.TryAddWithoutValidation("If-Match", ifMatch);
-        req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json");
+
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(payload, _jsonOptions),
+            Encoding.UTF8,
+            "application/json");
 
         var res = await _http.SendAsync(req, cancellationToken);
         res.RequestMessage ??= req;
 
         if (!res.IsSuccessStatusCode)
             throw await CreateExceptionAsync(res, cancellationToken);
+
+        // No content → return default
+        if (res.StatusCode == HttpStatusCode.NoContent)
+            return default!;
+
+        var json = await res.Content.ReadAsStringAsync(cancellationToken);
+
+        return JsonSerializer.Deserialize<TResponse>(json, _jsonOptions)
+               ?? throw new BusinessCentralServerException(
+                   "Failed to deserialize PATCH response.",
+                   res.StatusCode,
+                   req.Method.Method,
+                   req.RequestUri!.ToString(),
+                   json);
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -211,7 +232,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         var url = BuildUrl(path, filter, options, select);
 
         var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Headers.Authorization = new AuthenticationHeaderValue(BearerScheme, token);
 
         return req;
     }
@@ -280,7 +301,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
                 throw await CreateExceptionAsync(res, cancellationToken);
 
             var json = await res.Content.ReadAsStringAsync(cancellationToken);
-            var token = JsonSerializer.Deserialize<TokenResponse>(json, JsonOptions)
+            var token = JsonSerializer.Deserialize<TokenResponse>(json, _jsonOptions)
                         ?? throw new JsonException("Token response was null.");
 
             _token = new CachedAccessToken
@@ -323,52 +344,10 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         };
     }
 
-    public async Task<TResponse> PatchAsync<TPayload, TResponse>(
-        string path, 
-        string systemId, 
-        TPayload payload, 
-        string ifMatch = "*", 
-        CancellationToken cancellationToken = default)
-        where TResponse : class
-    {
-        var token = await GetTokenAsync(cancellationToken);
-
-        var url = $"{_options.BaseUrl}/Company('{_options.Company}')/{path}({systemId})";
-        var req = new HttpRequestMessage(HttpMethod.Patch, url);
-
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        req.Headers.TryAddWithoutValidation("If-Match", ifMatch);
-
-        req.Content = new StringContent(
-            JsonSerializer.Serialize(payload, JsonOptions),
-            Encoding.UTF8,
-            "application/json");
-
-        var res = await _http.SendAsync(req, cancellationToken);
-        res.RequestMessage ??= req;
-
-        if (!res.IsSuccessStatusCode)
-            throw await CreateExceptionAsync(res, cancellationToken);
-
-        // No content → return default
-        if (res.StatusCode == HttpStatusCode.NoContent)
-            return default!;
-
-        var json = await res.Content.ReadAsStringAsync(cancellationToken);
-
-        return JsonSerializer.Deserialize<TResponse>(json, JsonOptions)
-               ?? throw new BusinessCentralServerException(
-                   "Failed to deserialize PATCH response.",
-                   res.StatusCode,
-                   req.Method.Method,
-                   req.RequestUri!.ToString(),
-                   json);
-    }
-
     private sealed class ODataWrapper<T>
     {
         [JsonPropertyName("value")]
-        public List<T> Value { get; set; } = new();
+        public List<T> Value { get; set; } = [];
     }
 
     private sealed class TokenResponse
