@@ -32,21 +32,21 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         ODataFilter? filter = null,
         Action<QueryOptions>? options = null,
         IEnumerable<string>? select = null,
-        CancellationToken ct = default)
-        => QueryAsync<TEntity>(path, filter?.Value ?? string.Empty, options, select, ct);
+        CancellationToken cancellationToken = default)
+        => QueryAsync<TEntity>(path, filter?.Value ?? string.Empty, options, select, cancellationToken);
 
     public async Task<List<TEntity>> QueryAsync<TEntity>(
         string path,
         string filter,
         Action<QueryOptions>? options = null,
         IEnumerable<string>? select = null,
-        CancellationToken ct = default)
+        CancellationToken cancellationToken = default)
     {
         var queryOptions = new QueryOptions();
         options?.Invoke(queryOptions);
 
-        var res = await SendAsync(path, filter, queryOptions, select, ct);
-        var json = await res.Content.ReadAsStringAsync(ct);
+        var res = await SendAsync(path, filter, queryOptions, select, cancellationToken);
+        var json = await res.Content.ReadAsStringAsync(cancellationToken);
 
         try
         {
@@ -69,10 +69,10 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
 
     public async Task<TResponse> QueryRawAsync<TResponse>(
         string path,
-        CancellationToken ct = default)
+        CancellationToken cancellationToken = default)
         where TResponse : class
     {
-        var token = await GetTokenAsync(ct);
+        var token = await GetTokenAsync(cancellationToken);
 
         var req = new HttpRequestMessage(
             HttpMethod.Get,
@@ -80,13 +80,13 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
 
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        var res = await _http.SendAsync(req, ct);
+        var res = await _http.SendAsync(req, cancellationToken);
         res.RequestMessage ??= req;
 
         if (!res.IsSuccessStatusCode)
-            throw await CreateExceptionAsync(res, ct);
+            throw await CreateExceptionAsync(res, cancellationToken);
 
-        var json = await res.Content.ReadAsStringAsync(ct);
+        var json = await res.Content.ReadAsStringAsync(cancellationToken);
 
         try
         {
@@ -110,7 +110,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         ODataFilter? filter = null,
         Action<QueryOptions>? options = null,
         IEnumerable<string>? select = null,
-        CancellationToken ct = default)
+        CancellationToken cancellationToken = default)
     {
         var all = new List<TEntity>();
         var skip = 0;
@@ -132,7 +132,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
                         o.OrderBy = baseOptions.OrderBy;
                 },
                 select,
-                ct);
+                cancellationToken);
 
             if (page.Count == 0)
                 break;
@@ -149,9 +149,9 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         string systemId,
         TPayload payload,
         string ifMatch = "*",
-        CancellationToken ct = default)
+        CancellationToken cancellationToken = default)
     {
-        var token = await GetTokenAsync(ct);
+        var token = await GetTokenAsync(cancellationToken);
 
         var url = $"{_options.BaseUrl}/Company('{_options.Company}')/{path}({systemId})";
         var req = new HttpRequestMessage(HttpMethod.Patch, url);
@@ -160,11 +160,11 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         req.Headers.TryAddWithoutValidation("If-Match", ifMatch);
         req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json");
 
-        var res = await _http.SendAsync(req, ct);
+        var res = await _http.SendAsync(req, cancellationToken);
         res.RequestMessage ??= req;
 
         if (!res.IsSuccessStatusCode)
-            throw await CreateExceptionAsync(res, ct);
+            throw await CreateExceptionAsync(res, cancellationToken);
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -172,7 +172,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         string filter,
         QueryOptions options,
         IEnumerable<string>? select,
-        CancellationToken ct)
+        CancellationToken cancellationToken)
     {
         const int maxRetries = 1;
 
@@ -181,10 +181,10 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
             var isRetry = attempt > 0;
 
             if (isRetry)
-                await InvalidateTokenAsync(ct);
+                await InvalidateTokenAsync(cancellationToken);
 
-            var req = await CreateRequestAsync(path, filter, options, select, ct);
-            var res = await _http.SendAsync(req, ct);
+            var req = await CreateRequestAsync(path, filter, options, select, cancellationToken);
+            var res = await _http.SendAsync(req, cancellationToken);
 
             res.RequestMessage ??= req;
 
@@ -192,7 +192,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
                 continue;
 
             if (!res.IsSuccessStatusCode)
-                throw await CreateExceptionAsync(res, ct);
+                throw await CreateExceptionAsync(res, cancellationToken);
 
             return res;
         }
@@ -205,9 +205,9 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         string filter,
         QueryOptions options,
         IEnumerable<string>? select,
-        CancellationToken ct)
+        CancellationToken cancellationToken)
     {
-        var token = await GetTokenAsync(ct);
+        var token = await GetTokenAsync(cancellationToken);
         var url = BuildUrl(path, filter, options, select);
 
         var req = new HttpRequestMessage(HttpMethod.Get, url);
@@ -247,19 +247,19 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         return url;
     }
 
-    private async Task InvalidateTokenAsync(CancellationToken ct)
+    private async Task InvalidateTokenAsync(CancellationToken cancellationToken)
     {
-        await _tokenLock.WaitAsync(ct);
+        await _tokenLock.WaitAsync(cancellationToken);
         try { _token = null; }
         finally { _tokenLock.Release(); }
     }
 
-    private async Task<string> GetTokenAsync(CancellationToken ct)
+    private async Task<string> GetTokenAsync(CancellationToken cancellationToken)
     {
         if (_token != null && !_token.IsExpired)
             return _token.Token;
 
-        await _tokenLock.WaitAsync(ct);
+        await _tokenLock.WaitAsync(cancellationToken);
         try
         {
             if (_token != null && !_token.IsExpired)
@@ -273,13 +273,13 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
                 "application/x-www-form-urlencoded");
 
             var req = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = body };
-            var res = await _http.SendAsync(req, ct);
+            var res = await _http.SendAsync(req, cancellationToken);
             res.RequestMessage ??= req;
 
             if (!res.IsSuccessStatusCode)
-                throw await CreateExceptionAsync(res, ct);
+                throw await CreateExceptionAsync(res, cancellationToken);
 
-            var json = await res.Content.ReadAsStringAsync(ct);
+            var json = await res.Content.ReadAsStringAsync(cancellationToken);
             var token = JsonSerializer.Deserialize<TokenResponse>(json, JsonOptions)
                         ?? throw new JsonException("Token response was null.");
 
@@ -297,9 +297,9 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         }
     }
 
-    private static async Task<BusinessCentralException> CreateExceptionAsync(HttpResponseMessage res, CancellationToken ct)
+    private static async Task<BusinessCentralException> CreateExceptionAsync(HttpResponseMessage res, CancellationToken cancellationToken)
     {
-        var body = await res.Content.ReadAsStringAsync(ct);
+        var body = await res.Content.ReadAsStringAsync(cancellationToken);
         var url = res.RequestMessage?.RequestUri?.ToString();
         var method = res.RequestMessage?.Method.Method ?? "UNKNOWN";
 
@@ -321,6 +321,48 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
                 $"Business Central returned {(int)res.StatusCode} {res.StatusCode}.",
                 res.StatusCode, method, url, body)
         };
+    }
+
+    public async Task<TResponse> PatchAsync<TPayload, TResponse>(
+        string path, 
+        string systemId, 
+        TPayload payload, 
+        string ifMatch = "*", 
+        CancellationToken cancellationToken = default)
+        where TResponse : class
+    {
+        var token = await GetTokenAsync(cancellationToken);
+
+        var url = $"{_options.BaseUrl}/Company('{_options.Company}')/{path}({systemId})";
+        var req = new HttpRequestMessage(HttpMethod.Patch, url);
+
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(payload, JsonOptions),
+            Encoding.UTF8,
+            "application/json");
+
+        var res = await _http.SendAsync(req, cancellationToken);
+        res.RequestMessage ??= req;
+
+        if (!res.IsSuccessStatusCode)
+            throw await CreateExceptionAsync(res, cancellationToken);
+
+        // No content → return default
+        if (res.StatusCode == HttpStatusCode.NoContent)
+            return default!;
+
+        var json = await res.Content.ReadAsStringAsync(cancellationToken);
+
+        return JsonSerializer.Deserialize<TResponse>(json, JsonOptions)
+               ?? throw new BusinessCentralServerException(
+                   "Failed to deserialize PATCH response.",
+                   res.StatusCode,
+                   req.Method.Method,
+                   req.RequestUri!.ToString(),
+                   json);
     }
 
     private sealed class ODataWrapper<T>

@@ -21,7 +21,7 @@ public interface IBusinessCentralClient
         ODataFilter? filter = null,
         Action<QueryOptions>? options = null,
         IEnumerable<string>? select = null,
-        CancellationToken ct = default);
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes an OData query using a raw $filter string and returns the matching entities.
@@ -37,7 +37,7 @@ public interface IBusinessCentralClient
         string filter,
         Action<QueryOptions>? options = null,
         IEnumerable<string>? select = null,
-        CancellationToken ct = default);
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes an OData query and retrieves all matching entities by automatically paging through the result set.
@@ -53,7 +53,7 @@ public interface IBusinessCentralClient
         ODataFilter? filter = null,
         Action<QueryOptions>? options = null,
         IEnumerable<string>? select = null,
-        CancellationToken ct = default);
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Executes a raw GET request against the given relative OData URL and deserializes the full response.
@@ -63,7 +63,7 @@ public interface IBusinessCentralClient
     /// <param name="ct">Cancellation token.</param>
     Task<TResponse> QueryRawAsync<TResponse>(
         string path,
-        CancellationToken ct = default)
+        CancellationToken cancellationToken = default)
         where TResponse : class;
 
     /// <summary>
@@ -75,10 +75,12 @@ public interface IBusinessCentralClient
     /// <param name="payload">Object to serialize and send as the PATCH body.</param>
     /// <param name="ifMatch">ETag value for optimistic concurrency control (default "*").</param>
     /// <param name="ct">Cancellation token.</param>
-    Task PatchAsync<TPayload>(
+    Task<TResponse> PatchAsync<TPayload, TResponse>(
         string path,
         string systemId,
         TPayload payload,
         string ifMatch = "*",
-        CancellationToken ct = default);
+        CancellationToken cancellationToken = default)
+        where TResponse : class;
+
 }
