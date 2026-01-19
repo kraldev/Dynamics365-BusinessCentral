@@ -146,13 +146,13 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         return all;
     }
 
-    public async Task<TResponse> PatchAsync<TPayload, TResponse>(
+    public async Task<T> PatchAsync<T>(
         string path,
         string systemId,
-        TPayload payload,
+        T payload,
         string ifMatch = "*",
         CancellationToken cancellationToken = default)
-        where TResponse : class
+        where T : class
     {
         var token = await GetTokenAsync(cancellationToken);
 
@@ -179,7 +179,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
 
         var json = await res.Content.ReadAsStringAsync(cancellationToken);
 
-        return JsonSerializer.Deserialize<TResponse>(json, _jsonOptions)
+        return JsonSerializer.Deserialize<T>(json, _jsonOptions)
                ?? throw new BusinessCentralServerException(
                    "Failed to deserialize PATCH response.",
                    res.StatusCode,
@@ -344,49 +344,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         };
     }
 
-    public async Task<T> PatchAsync<T>(
-        string path,
-        string systemId,
-        T payload,
-        string ifMatch = "*",
-        CancellationToken cancellationToken = default)
-        where T : class
-    {
-        var token = await GetTokenAsync(cancellationToken);
-
-        var url = $"{_options.BaseUrl}/Company('{_options.Company}')/{path}({systemId})";
-        var req = new HttpRequestMessage(HttpMethod.Patch, url);
-
-        req.Headers.Authorization = new AuthenticationHeaderValue(BearerScheme, token);
-        req.Headers.TryAddWithoutValidation("If-Match", ifMatch);
-
-        req.Content = new StringContent(
-            JsonSerializer.Serialize(payload, _jsonOptions),
-            Encoding.UTF8,
-            "application/json");
-
-        var res = await _http.SendAsync(req, cancellationToken);
-        res.RequestMessage ??= req;
-
-        if (!res.IsSuccessStatusCode)
-            throw await CreateExceptionAsync(res, cancellationToken);
-
-        // No content → return default
-        if (res.StatusCode == HttpStatusCode.NoContent)
-            return default!;
-
-        var json = await res.Content.ReadAsStringAsync(cancellationToken);
-
-        return JsonSerializer.Deserialize<T>(json, _jsonOptions)
-               ?? throw new BusinessCentralServerException(
-                   "Failed to deserialize PATCH response.",
-                   res.StatusCode,
-                   req.Method.Method,
-                   req.RequestUri!.ToString(),
-                   json);
-    }
-
-
+    
     private sealed class ODataWrapper<T>
     {
         [JsonPropertyName("value")]
