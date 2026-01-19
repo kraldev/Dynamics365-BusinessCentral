@@ -15,7 +15,7 @@ public interface IBusinessCentralClient
     /// <param name="filter">Optional strongly-typed OData filter expression.</param>
     /// <param name="options">Optional query options such as paging or ordering.</param>
     /// <param name="select">Optional list of fields to select.</param>
-    /// <param name="ct">Cancellation token.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<List<TEntity>> QueryAsync<TEntity>(
         string path,
         ODataFilter? filter = null,
@@ -31,7 +31,7 @@ public interface IBusinessCentralClient
     /// <param name="filter">Raw OData $filter expression.</param>
     /// <param name="options">Optional query options such as paging or ordering.</param>
     /// <param name="select">Optional list of fields to select.</param>
-    /// <param name="ct">Cancellation token.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<List<TEntity>> QueryAsync<TEntity>(
         string path,
         string filter,
@@ -47,7 +47,7 @@ public interface IBusinessCentralClient
     /// <param name="filter">Optional strongly-typed OData filter expression.</param>
     /// <param name="options">Optional query options such as page size or ordering.</param>
     /// <param name="select">Optional list of fields to select.</param>
-    /// <param name="ct">Cancellation token.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<List<TEntity>> QueryAllAsync<TEntity>(
         string path,
         ODataFilter? filter = null,
@@ -60,7 +60,7 @@ public interface IBusinessCentralClient
     /// </summary>
     /// <typeparam name="TResponse">The type to deserialize the response body into.</typeparam>
     /// <param name="path">Relative OData URL including any query parameters.</param>
-    /// <param name="ct">Cancellation token.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<TResponse> QueryRawAsync<TResponse>(
         string path,
         CancellationToken cancellationToken = default)
@@ -74,7 +74,7 @@ public interface IBusinessCentralClient
     /// <param name="systemId">The Business Central systemId property.</param>
     /// <param name="payload">Object to serialize and send as the PATCH body.</param>
     /// <param name="ifMatch">ETag value for optimistic concurrency control (default "*").</param>
-    /// <param name="ct">Cancellation token.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<TResponse> PatchAsync<TPayload, TResponse>(
         string path,
         string systemId,
