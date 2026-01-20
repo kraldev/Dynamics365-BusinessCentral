@@ -113,4 +113,28 @@ public class ServiceCollectionExtensionsTests
 
         Assert.NotNull(client);
     }
+
+    [Fact]
+    public void BusinessCentralClient_Factory_Executes_Without_Observer()
+    {
+        var services = new ServiceCollection();
+
+        services.AddBusinessCentral(o =>
+        {
+            o.BaseUrl = "https://test";
+            o.Company = "Test";
+            o.TenantId = "t";
+            o.ClientId = "c";
+            o.ClientSecret = "s";
+            o.Scope = "scope";
+            o.TokenEndpoint = "https://auth/{TenantId}";
+        });
+
+        var provider = services.BuildServiceProvider();
+
+        var client = provider.GetRequiredService<IBusinessCentralClient>();
+
+        Assert.NotNull(client);
+    }
+
 }
