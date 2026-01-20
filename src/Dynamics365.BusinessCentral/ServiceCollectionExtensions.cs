@@ -16,7 +16,7 @@ public static class ServiceCollectionExtensions
         configure(options);
         services.AddSingleton(options);
 
-        // Register the client using a factory so we can resolve the observer
+        // Register client with factory so observer can be resolved
         services.AddHttpClient<IBusinessCentralClient, BusinessCentralClient>()
             .AddTypedClient((http, sp) =>
             {
@@ -31,10 +31,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>
-    /// Registers a custom observer implementation to receive diagnostics events.
-    /// </summary>
-    public static IServiceCollection AddBusinessCentralObserver<TObserver>(
+    public static IServiceCollection AddObserver<TObserver>(
         this IServiceCollection services)
         where TObserver : class, IBusinessCentralObserver
     {
