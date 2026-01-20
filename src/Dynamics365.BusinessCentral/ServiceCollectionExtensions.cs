@@ -1,6 +1,5 @@
 ﻿using Dynamics365.BusinessCentral.Client;
 using Dynamics365.BusinessCentral.Options;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Dynamics365.BusinessCentral;
 
