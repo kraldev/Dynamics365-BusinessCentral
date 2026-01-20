@@ -3,11 +3,13 @@
 
 # ✨ Features
 
-- Typed OData querying with fluent filter composition
+- Strongly-typed OData querying with fluent filter composition
+- Full CRUD support (GET, POST, PUT, PATCH, DELETE)
 - Built-in OAuth2 client credentials authentication
 - Automatic token caching and refresh
-- Fluent paging, ordering and selection helpers
-- Clean DI integration
+- Fluent paging, ordering and field selection helpers
+- Optional observability hooks for logging and monitoring
+- Clean dependency injection integration
 - No runtime dependencies beyond HttpClient and System.Text.Json
 
 # 📦 Installation
@@ -83,6 +85,28 @@ await client.PatchAsync(
     new { Status = "Released" });
 ```
 
+Post
+```csharp
+var created = await client.PostAsync(
+    "salesOrders",
+    new { CustomerNo = "10000", Description = "Test Order" });
+```
+
+Put
+```csharp
+var updated = await client.PutAsync(
+    "salesOrders",
+    systemId: "a3f1c2d1-8b0a-4e3d-9f6c-123456789abc",
+    payload: orderDto);
+```
+
+Delete
+```csharp
+await client.DeleteAsync(
+    "salesOrders",
+    systemId: "a3f1c2d1-8b0a-4e3d-9f6c-123456789abc");
+```
+
 # 🧪 Filters
 
 | Method                  | Expression                |
@@ -99,6 +123,37 @@ await client.PatchAsync(
 | `Filter.In`             | `field in (...)`          |
 | `Filter.IsNull`         | `field eq null`           |
 | `Filter.IsNotNull`      | `field ne null`           |
+
+# 📡 Observability (optional)
+The client supports optional diagnostics hooks so you can integrate your own logging framework without taking extra dependencies.
+
+```csharp
+services.AddBusinessCentral(options => { ... })
+        .AddObserver<MyLoggingObserver>();
+```
+Example Observer:
+```csharp
+public class MyLoggingObserver : IBusinessCentralObserver
+{
+    public void OnRequestStarting(BusinessCentralRequestInfo info) =>
+        Console.WriteLine($"Starting {info.Method} {info.Url}");
+
+    public void OnRequestSucceeded(BusinessCentralRequestInfo info) =>
+        Console.WriteLine($"Success {info.StatusCode} in {info.Duration}");
+
+    public void OnRequestFailed(BusinessCentralErrorInfo error) =>
+        Console.WriteLine($"Failed: {error.Exception?.Message}");
+
+    public void OnTokenRequested() =>
+        Console.WriteLine("Requesting new OAuth token");
+
+    public void OnTokenRefreshed(BusinessCentralTokenInfo info) =>
+        Console.WriteLine($"Token refreshed. Cached: {info.FromCache}");
+
+    public void OnDeserializationFailed(BusinessCentralErrorInfo error) =>
+        Console.WriteLine($"Deserialization error: {error.Exception?.Message}");
+}
+```
 
 # Example
 ```csharp
