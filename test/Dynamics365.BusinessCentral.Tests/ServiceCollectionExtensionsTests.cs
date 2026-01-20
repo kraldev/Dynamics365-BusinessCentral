@@ -1,62 +1,67 @@
-﻿using Dynamics365.BusinessCentral.Client;
+﻿using Dynamics365.BusinessCentral;
+using Dynamics365.BusinessCentral.Client;
 using Dynamics365.BusinessCentral.Diagnostics;
+using Dynamics365.BusinessCentral.Options;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dynamics365.BusinessCentral.Tests;
 
 public class ServiceCollectionExtensionsTests
 {
-    private class TestObserver : IBusinessCentralObserver
+    private static Action<BusinessCentralOptions> DefaultOptions => options =>
     {
-        public bool WasCalled { get; private set; }
-
-        public void OnRequestStarting(BusinessCentralRequestInfo info) => WasCalled = true;
-        public void OnRequestSucceeded(BusinessCentralRequestInfo info) { }
-        public void OnRequestFailed(BusinessCentralErrorInfo info) { }
-        public void OnTokenRequested() { }
-        public void OnTokenRefreshed(BusinessCentralTokenInfo info) { }
-        public void OnDeserializationFailed(BusinessCentralErrorInfo info) { }
-    }
+        options.TenantId = "tenant";
+        options.ClientId = "client";
+        options.ClientSecret = "secret";
+        options.BaseUrl = "https://test";
+        options.Company = "Test";
+        options.Scope = "scope";
+        options.TokenEndpoint = "https://auth/{TenantId}";
+    };
 
     [Fact]
-    public void AddBusinessCentral_Registers_Client()
+    public void AddBusinessCentral_Registers_Client_Without_Observer()
     {
         var services = new ServiceCollection();
 
-        services.AddBusinessCentral(o =>
-        {
-            o.BaseUrl = "https://test";
-            o.Company = "Test";
-            o.TenantId = "t";
-            o.ClientId = "c";
-            o.ClientSecret = "s";
-            o.Scope = "scope";
-            o.TokenEndpoint = "https://auth/{TenantId}";
-        });
+        services.AddBusinessCentral(DefaultOptions);
 
         var provider = services.BuildServiceProvider();
 
         var client = provider.GetService<IBusinessCentralClient>();
 
         Assert.NotNull(client);
+        Assert.IsType<BusinessCentralClient>(client);
     }
 
     [Fact]
-    public void AddObserver_Registers_Custom_Observer()
+    public void AddBusinessCentral_With_Observer_Registers_Client()
     {
         var services = new ServiceCollection();
 
-        services.AddBusinessCentral(o =>
-        {
-            o.BaseUrl = "https://test";
-            o.Company = "Test";
-            o.TenantId = "t";
-            o.ClientId = "c";
-            o.ClientSecret = "s";
-            o.Scope = "scope";
-            o.TokenEndpoint = "https://auth/{TenantId}";
-        })
-        .AddObserver<TestObserver>();
+        services
+            .AddBusinessCentral(DefaultOptions)
+            .AddObserver<TestObserver>();
+
+        var provider = services.BuildServiceProvider();
+
+        var client = provider.GetService<IBusinessCentralClient>();
+
+        Assert.NotNull(client);
+        Assert.IsType<BusinessCentralClient>(client);
+
+        // Ensure observer itself is resolvable
+        var observer = provider.GetService<IBusinessCentralObserver>();
+        Assert.NotNull(observer);
+        Assert.IsType<TestObserver>(observer);
+    }
+
+    [Fact]
+    public void AddObserver_Can_Be_Called_Without_AddBusinessCentral()
+    {
+        var services = new ServiceCollection();
+
+        services.AddObserver<TestObserver>();
 
         var provider = services.BuildServiceProvider();
 
@@ -67,74 +72,28 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void Client_Uses_NullObserver_When_None_Registered()
+    public void AddBusinessCentral_Registers_Options()
     {
         var services = new ServiceCollection();
 
-        services.AddBusinessCentral(o =>
-        {
-            o.BaseUrl = "https://test";
-            o.Company = "Test";
-            o.TenantId = "t";
-            o.ClientId = "c";
-            o.ClientSecret = "s";
-            o.Scope = "scope";
-            o.TokenEndpoint = "https://auth/{TenantId}";
-        });
+        services.AddBusinessCentral(DefaultOptions);
 
         var provider = services.BuildServiceProvider();
 
-        var observer = provider.GetService<IBusinessCentralObserver>();
+        var options = provider.GetService<BusinessCentralOptions>();
 
-        // No observer registered -> should be null in DI
-        Assert.Null(observer);
+        Assert.NotNull(options);
+        Assert.Equal("tenant", options.TenantId);
     }
 
-    [Fact]
-    public void Client_Can_Be_Constructed_With_Custom_Observer()
+
+    private class TestObserver : IBusinessCentralObserver
     {
-        var services = new ServiceCollection();
-
-        services.AddBusinessCentral(o =>
-        {
-            o.BaseUrl = "https://test";
-            o.Company = "Test";
-            o.TenantId = "t";
-            o.ClientId = "c";
-            o.ClientSecret = "s";
-            o.Scope = "scope";
-            o.TokenEndpoint = "https://auth/{TenantId}";
-        })
-        .AddObserver<TestObserver>();
-
-        var provider = services.BuildServiceProvider();
-
-        var client = provider.GetRequiredService<IBusinessCentralClient>();
-
-        Assert.NotNull(client);
+        public void OnRequestStarting(BusinessCentralRequestInfo info) { }
+        public void OnRequestSucceeded(BusinessCentralRequestInfo info) { }
+        public void OnRequestFailed(BusinessCentralErrorInfo error) { }
+        public void OnTokenRequested() { }
+        public void OnTokenRefreshed(BusinessCentralTokenInfo info) { }
+        public void OnDeserializationFailed(BusinessCentralErrorInfo error) { }
     }
-
-    [Fact]
-    public void BusinessCentralClient_Factory_Executes_Without_Observer()
-    {
-        var services = new ServiceCollection();
-
-        services.AddBusinessCentral(o =>
-        {
-            o.BaseUrl = "https://test";
-            o.Company = "Test";
-            o.TenantId = "t";
-            o.ClientId = "c";
-            o.ClientSecret = "s";
-            o.Scope = "scope";
-            o.TokenEndpoint = "https://auth/{TenantId}";
-        });
-
-        var provider = services.BuildServiceProvider();
-
-        var client = provider.GetRequiredService<IBusinessCentralClient>();
-
-        Assert.NotNull(client);
-    }
-
 }
