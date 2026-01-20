@@ -126,7 +126,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         return all;
     }
 
-    private HttpRequestMessage CreateJsonRequest(HttpMethod method, string url, object? payload = null)
+    private static HttpRequestMessage CreateJsonRequest(HttpMethod method, string url, object? payload = null)
     {
         var req = new HttpRequestMessage(method, url);
         req.AddJsonHeaders();
