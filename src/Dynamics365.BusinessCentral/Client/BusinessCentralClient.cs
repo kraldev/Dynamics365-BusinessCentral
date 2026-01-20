@@ -66,35 +66,12 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         options?.Invoke(queryOptions);
 
         var res = await SendAsync(path, filter, queryOptions, select, cancellationToken);
-        var json = await res.Content.ReadAsStringAsync(cancellationToken);
+        var wrapper = await DeserializeAsync<ODataWrapper<TEntity>>(
+            res,
+            "Failed to deserialize Business Central response.",
+            cancellationToken);
 
-        try
-        {
-            var wrapper = JsonSerializer.Deserialize<ODataWrapper<TEntity>>(json, _jsonOptions)
-                          ?? throw new JsonException("Response was null.");
-
-            return wrapper.Value;
-        }
-        catch (JsonException ex)
-        {
-            _observer.OnDeserializationFailed(new BusinessCentralErrorInfo
-            {
-                Method = res.RequestMessage!.Method.Method,
-                Url = res.RequestMessage!.RequestUri!.ToString(),
-                StatusCode = (int)res.StatusCode,
-                Exception = ex
-            });
-
-            throw new BusinessCentralServerException(
-                "Failed to deserialize Business Central response.",
-                res.StatusCode,
-                res.RequestMessage!.Method.Method,
-                res.RequestMessage!.RequestUri!.ToString(),
-                json,
-                null,
-                null,
-                ex);
-        }
+        return wrapper.Value;
     }
 
     public async Task<TResponse> QueryRawAsync<TResponse>(
@@ -184,33 +161,10 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
                 null);
         }
 
-        var json = await res.Content.ReadAsStringAsync(cancellationToken);
-
-        try
-        {
-            return JsonSerializer.Deserialize<T>(json, _jsonOptions)
-                   ?? throw new JsonException("Response was null.");
-        }
-        catch (JsonException ex)
-        {
-            _observer.OnDeserializationFailed(new BusinessCentralErrorInfo
-            {
-                Method = req.Method.Method,
-                Url = req.RequestUri!.ToString(),
-                StatusCode = (int)res.StatusCode,
-                Exception = ex
-            });
-
-            throw new BusinessCentralServerException(
-                "Failed to deserialize PATCH response.",
-                res.StatusCode,
-                req.Method.Method,
-                req.RequestUri!.ToString(),
-                json,
-                null,
-                null,
-                ex);
-        }
+        return await DeserializeAsync<T>(
+            res,
+            "Failed to deserialize PATCH response.",
+            cancellationToken);
     }
 
     private async Task<T> SendWithRetryAndDeserializeAsync<T>(
@@ -220,33 +174,10 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
     {
         var res = await SendWithAuthRetryAsync(req, cancellationToken);
 
-        var json = await res.Content.ReadAsStringAsync(cancellationToken);
-
-        try
-        {
-            return JsonSerializer.Deserialize<T>(json, _jsonOptions)
-                   ?? throw new JsonException("Response was null.");
-        }
-        catch (JsonException ex)
-        {
-            _observer.OnDeserializationFailed(new BusinessCentralErrorInfo
-            {
-                Method = req.Method.Method,
-                Url = req.RequestUri!.ToString(),
-                StatusCode = (int)res.StatusCode,
-                Exception = ex
-            });
-
-            throw new BusinessCentralServerException(
-                "Failed to deserialize Business Central response.",
-                res.StatusCode,
-                req.Method.Method,
-                req.RequestUri!.ToString(),
-                json,
-                null,
-                null,
-                ex);
-        }
+        return await DeserializeAsync<T>(
+            res,
+            "Failed to deserialize Business Central response.",
+            cancellationToken);
     }
 
     private async Task<HttpResponseMessage> SendWithAuthRetryAsync(
@@ -360,11 +291,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         var current = _token;
         if (current != null && !current.IsExpired)
         {
-            _observer.OnTokenRefreshed(new BusinessCentralTokenInfo
-            {
-                ExpiresAt = current.ExpiresAt,
-                FromCache = true
-            });
+            NotifyTokenRefreshed(current.ExpiresAt, true);
 
             return current.Token;
         }
@@ -376,11 +303,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
             current = _token;
             if (current != null && !current.IsExpired)
             {
-                _observer.OnTokenRefreshed(new BusinessCentralTokenInfo
-                {
-                    ExpiresAt = current.ExpiresAt,
-                    FromCache = true
-                });
+                NotifyTokenRefreshed(current.ExpiresAt, true);
 
                 return current.Token;
             }
@@ -421,11 +344,7 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
                 ExpiresAt = expiresAt
             };
 
-            _observer.OnTokenRefreshed(new BusinessCentralTokenInfo
-            {
-                ExpiresAt = expiresAt,
-                FromCache = false
-            });
+            NotifyTokenRefreshed(expiresAt, false);
 
             return _token.Token;
         }
@@ -433,6 +352,49 @@ public sealed class BusinessCentralClient : IBusinessCentralClient
         {
             _tokenLock.Release();
         }
+    }
+
+    private async Task<T> DeserializeAsync<T>(
+        HttpResponseMessage res,
+        string errorMessage,
+        CancellationToken cancellationToken)
+    {
+        var json = await res.Content.ReadAsStringAsync(cancellationToken);
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, _jsonOptions)
+                   ?? throw new JsonException("Response was null.");
+        }
+        catch (JsonException ex)
+        {
+            _observer.OnDeserializationFailed(new BusinessCentralErrorInfo
+            {
+                Method = res.RequestMessage!.Method.Method,
+                Url = res.RequestMessage!.RequestUri!.ToString(),
+                StatusCode = (int)res.StatusCode,
+                Exception = ex
+            });
+
+            throw new BusinessCentralServerException(
+                errorMessage,
+                res.StatusCode,
+                res.RequestMessage!.Method.Method,
+                res.RequestMessage!.RequestUri!.ToString(),
+                json,
+                null,
+                null,
+                ex);
+        }
+    }
+
+    private void NotifyTokenRefreshed(DateTime expiresAt, bool fromCache)
+    {
+        _observer.OnTokenRefreshed(new BusinessCentralTokenInfo
+        {
+            ExpiresAt = expiresAt,
+            FromCache = fromCache
+        });
     }
 
     private sealed class ODataWrapper<T>
