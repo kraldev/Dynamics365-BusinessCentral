@@ -2,9 +2,11 @@
 using Dynamics365.BusinessCentral.Diagnostics;
 using Dynamics365.BusinessCentral.Options;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Dynamics365.BusinessCentral;
 
+[ExcludeFromCodeCoverage]
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddBusinessCentral(
